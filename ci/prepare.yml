@@ -1,0 +1,44 @@
+parameters:
+  rust_toolchain: stable
+
+steps:
+  - bash: |
+      set -e
+      if ! command -v rustup >/dev/null 2>&1; then
+        curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{parameters['rust_toolchain']}}
+        export PATH="$HOME/.cargo/bin:$PATH"
+      else
+        rustup self update
+        rustup default ${{parameters['rust_toolchain']}}
+      fi
+      test -e rust-toolchain && echo "${{parameters['rust_toolchain']}}" > rust-toolchain
+      rustup show
+      echo "##vso[task.setvariable variable=PATH;]$HOME/.cargo/bin:$PATH"
+    displayName: Install Rust toolchain
+
+  - bash: |
+      rustup --version
+      cargo --version
+      rustc --version
+    displayName: Rust version information
+
+  - bash: |
+      set -e
+      sudo apt-get update
+      sudo apt-get install -y libfuse-dev
+    displayName: Install FUSE (Linux)
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+  - bash: |
+      set -e
+      brew update
+      brew install pkg-config
+      brew tap homebrew/cask
+      brew cask install osxfuse
+    displayName: Install OSXFUSE (macOS)
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+
+  - checkout: self
+
+  - bash: test -e Cargo.lock || cargo generate-lockfile
+    displayName: Calculate dependencies

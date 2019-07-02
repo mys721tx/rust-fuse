@@ -1,0 +1,70 @@
+jobs:
+  - job: Check
+    pool:
+      vmImage: ubuntu-16.04
+    steps:
+      - template: ci/prepare.yml
+        parameters:
+          rust_toolchain: stable
+      - bash: |
+          if rustup component add rustfmt; then
+            cargo fmt --all -- --check
+          else
+            echo Skipping rustfmt
+          fi
+        displayName: Run formatting checks (disabled)
+        # TODO: enable rustfmt check once code formatting is great
+        condition: not(always())
+      - bash: cargo check --all --all-targets
+        displayName: Run compiler checks
+      - bash: |
+          if rustup component add clippy; then
+            cargo clippy --all --all-targets -- -Dwarnings -Drust-2018-idioms
+          else
+            echo Skipping clippy
+          fi
+        displayName: Run clippy checks (disabled)
+        # TODO: enable clippy checks once there are no warnings left
+        condition: not(always())
+
+  # TODO: allow failure using nightly
+
+  - job: Linux
+    pool:
+      vmImage: ubuntu-16.04
+    strategy:
+      matrix:
+        stable:
+          rust_toolchain: stable
+        beta:
+          rust_toolchain: beta
+        nightly:
+          rust_toolchain: nightly
+    steps:
+      - template: ci/prepare.yml
+        parameters:
+          rust_toolchain: $(rust_toolchain)
+      - bash: cargo build --all --all-targets
+        displayName: Build all targets
+      - bash: cargo test --all
+        displayName: Run all tests
+
+  - job: macOS
+    pool:
+      vmImage: macos-10.14
+    strategy:
+      matrix:
+        stable:
+          rust_toolchain: stable
+        beta:
+          rust_toolchain: beta
+        nightly:
+          rust_toolchain: nightly
+    steps:
+      - template: ci/prepare.yml
+        parameters:
+          rust_toolchain: $(rust_toolchain)
+      - bash: cargo build --all --all-targets
+        displayName: Build all targets
+      - bash: cargo test --all
+        displayName: Run all tests
